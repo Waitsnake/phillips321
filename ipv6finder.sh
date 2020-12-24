@@ -17,6 +17,13 @@
 #	use MAC address as unique key
 
 f_main(){
+    OwnIpv6=$(ip addr show dev en0 | grep 'inet6' | grep 'fe80' | head -n1 | cut -d" " -f2 | cut -d"/" -f1)
+
+    #ipv6 neighbor discovery
+    echo -n "[+]Do ipv6 neighbor discovery. "
+    NdpNeighbours=$(ndp -an | grep "%"${interface}| cut -d" " -f1 | sort -u)
+    echo "Done"
+
     #Ping multicast address for local neighbours and store as LinkLocalNeighbours
     echo -n "[+]Pinging (ff02::1) multicast for nodes on link local. "
     LinkLocalNeighbours=$(ping6 -c 3 -I ${interface} ff02::1 | grep icmp_seq | cut -d" " -f4 | cut -d"," -f 1 | sort -u)
@@ -49,6 +56,11 @@ f_main(){
     fi
     echo "Done"
 
+#TODO replace arp-scan with arp (don't need root and more results, but still problems with parsing of results)
+#    echo -n "[+]ArpScanning local IPv4. "
+#    ArpScan=$(arp -an | grep -v "incomplete" | grep -v "permanent" | cut -d" " -f2,4)
+#    echo "Done"
+
     echo -n "[+]ArpScanning local IPv4. (if you are not running as root, you will be prompted for your password by sudo) "
     ArpScan=$(sudo arp-scan -l -I ${interface} | grep -v packets | grep -v DUP | grep -v ${interface} | grep -v Starting | grep -v Ending | cut -f1,2)
     echo "Done"
@@ -56,7 +68,7 @@ f_main(){
     echo "-----------------------------------------|------------------------------------------|--------------------|--------------------|-------------"
     printf "%40s %1s %40s %1s %18s %1s %18s %1s %12s\n" "IPv6 Link Local" "|" "IPv6 Global" "|" "MAC Address" "|" "IPv4 Address" "|" "Info"
     echo "-----------------------------------------|------------------------------------------|--------------------|--------------------|-------------"
-    for IPV6LL in ${LinkLocalNeighbours}; do
+    for IPV6LL in ${NdpNeighbours}; do
         # Remove interface identifier (if any)
         IPV6LL=$(echo ${IPV6LL} | head -n1 | cut -d"%" -f1 | sed "s/:\$//g")
         IPV6LL_WITH_INTERFACE="${IPV6LL}%${interface}"
@@ -84,8 +96,13 @@ f_main(){
 
         #IPv4 not found so might be you or not in subnet?
         if [ -z "${IPV4Address}" ]; then #Unable to find IPv4 so possibly you
-            IPV4Address=$(ip -4 addr show ${interface} | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
-            Info="You?"
+            if [ "${IPV6LL}" = "${OwnIpv6}" ]; then
+                IPV4Address=$(ip -4 addr show ${interface} | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
+                Info="You"
+            else
+                IPV4Address=""
+                Info=""
+            fi
         else #IPv4 found so now decididng if router or not
             if (echo "$RouterLocalNeighbours" | grep -q ${IPV6LL}) ; then Info="Router"; else Info="Node" ; fi
         fi
