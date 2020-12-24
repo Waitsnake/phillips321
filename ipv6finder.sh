@@ -20,8 +20,8 @@ f_main(){
     OwnIpv6=$(ip addr show dev en0 | grep 'inet6' | grep 'fe80' | head -n1 | cut -d" " -f2 | cut -d"/" -f1)
 
     #ipv6 neighbor discovery
-    echo -n "[+]Do ipv6 neighbor discovery. "
-    NdpNeighbours=$(ndp -an | grep "%"${interface}| cut -d" " -f1 | sort -u)
+    echo -n "[+]Doing IPv6 neighbor discovery. "
+    NdpNeighbours=$(ndp -an | grep "%"${interface} | grep -v "expired" | cut -d" " -f1 | sort -u)
     echo "Done"
 
     #Ping multicast address for local neighbours and store as LinkLocalNeighbours
@@ -56,13 +56,8 @@ f_main(){
     fi
     echo "Done"
 
-#TODO replace arp-scan with arp (don't need root and more results, but still problems with parsing of results)
-#    echo -n "[+]ArpScanning local IPv4. "
-#    ArpScan=$(arp -an | grep -v "incomplete" | grep -v "permanent" | cut -d" " -f2,4)
-#    echo "Done"
-
-    echo -n "[+]ArpScanning local IPv4. (if you are not running as root, you will be prompted for your password by sudo) "
-    ArpScan=$(sudo arp-scan -l -I ${interface} | grep -v packets | grep -v DUP | grep -v ${interface} | grep -v Starting | grep -v Ending | cut -f1,2)
+    echo -n "[+]ArpScanning local IPv4. "
+    ArpScan=$(arp -an | grep -v "incomplete" | grep -v "permanent" | sed "s/(//g;s/)//g" | cut -d" " -f2,4)
     echo "Done"
 
     echo "---------------------------|-----------------------------------------|-------------------|-----------------|-------------------------------"
@@ -82,7 +77,8 @@ f_main(){
 
         #Use MAC to pair up with IPv4 address and global IPv6
         if [ ! -z "${LongMAC}" ]; then
-            IPV4Address=$(echo "${ArpScan}" | grep "${LongMAC}" | head -n1 | cut -f1)
+            #IPV4Address=$(echo "${ArpScan}" | grep "${LongMAC}" | head -n1 | cut -f1)
+            IPV4Address=$(echo "${ArpScan}" | grep "${MediumMAC}" | head -n1 | cut -d" " -f1)
             IPV6G=""
             IPV6G=$(ip -6 neigh show | grep "${MediumMAC}" | grep -v fe80 | awk {'print $1'} | head -n1)
             if [ -z "${IPV6G}" ]; then
