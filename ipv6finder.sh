@@ -17,11 +17,11 @@
 #	use MAC address as unique key
 
 f_main(){
-    OwnIpv6=$(ip addr show dev en0 | grep 'inet6' | grep 'fe80' | head -n1 | cut -d" " -f2 | cut -d"/" -f1)
+    OwnIpv6=$(ip addr show dev ${interface} | grep 'inet6' | grep 'fe80' | head -n1 | cut -d" " -f2 | cut -d"/" -f1)
 
-    #ipv6 neighbor discovery
-    echo -n "[+]Doing IPv6 neighbor discovery. "
-    NdpNeighbours=$(ndp -an | grep "%"${interface} | grep -v "expired" | cut -d" " -f1 | sort -u)
+    # an initial arp-scan is needed since arp not discovers on its own
+    echo -n "[+]ArpScan local IPv4. (if you are not running as root, you will be prompted for your password by sudo) "
+    sudo arp-scan -l -I ${interface} &> /dev/null
     echo "Done"
 
     #Ping multicast address for local neighbours and store as LinkLocalNeighbours
@@ -56,8 +56,13 @@ f_main(){
     fi
     echo "Done"
 
-    echo -n "[+]ArpScanning local IPv4. "
-    ArpScan=$(arp -an | grep -v "incomplete" | grep -v "permanent" | sed "s/(//g;s/)//g" | cut -d" " -f2,4)
+    #ipv6 neighbor discovery
+    echo -n "[+]Doing IPv6 neighbor discovery. "
+    NdpNeighbours=$(ndp -an | grep "%"${interface} | grep -v "expired" | cut -d" " -f1 | sort -u)
+    echo "Done"
+
+    echo -n "[+]Looing into Arp cache local IPv4. "
+    ArpScan=$(arp -an | grep ${interface} | grep -v "incomplete" | grep -v "permanent" | sed "s/(//g;s/)//g" | cut -d" " -f2,4)
     echo "Done"
 
     echo "---------------------------|-----------------------------------------|-------------------|-----------------|-------------------------------"
@@ -77,16 +82,11 @@ f_main(){
 
         #Use MAC to pair up with IPv4 address and global IPv6
         if [ ! -z "${LongMAC}" ]; then
-            #IPV4Address=$(echo "${ArpScan}" | grep "${LongMAC}" | head -n1 | cut -f1)
             IPV4Address=$(echo "${ArpScan}" | grep "${MediumMAC}" | head -n1 | cut -d" " -f1)
             IPV6G=""
-            IPV6G=$(ip -6 neigh show | grep "${MediumMAC}" | grep -v fe80 | awk {'print $1'} | head -n1)
+            IPV6G=$(ip -6 neigh show | grep "${interface}" | grep "${MediumMAC}" | grep -v fe80 | awk {'print $1'} | head -n1)
             if [ -z "${IPV6G}" ]; then
                 IPV6G="NotFound"
-                ip link show ${interface} | grep 'ether' | sed -e 's/.*ether \(..:..:..:..:..:..\).*/\1/' | grep -q ${LongMAC}
-                if [ $? -eq 0 ]; then
-                    IPV6G=$IPV6Address
-                fi
             fi
         fi
 
