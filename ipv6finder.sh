@@ -4,10 +4,11 @@
 # License:    CC BY-SA 3.0
 # Use:        ipv6 finder
 # Released:   www.phillips321.co.uk
-  version=0.8
+  version=0.9
 # Dependencies:
 #	arp-scan, sudo
 # ChangeLog
+#   v0.9    Added MacOS support, droped support for older Linux
 #   v0.8    Dropped MacOS support, added support for older Linux, removed ifconfig dependency, cleaned up
 #   v0.7    Incremented version numbers properly - whoops!
 #   v0.6    Added bug where arp-scan comes back with Duplicates (DUP)
@@ -22,6 +23,11 @@ f_main(){
     # an initial arp-scan is needed since arp not discovers on its own
     echo -n "[+]ArpScan local IPv4. (if you are not running as root, you will be prompted for your password by sudo) "
     sudo arp-scan -l -I ${interface} &> /dev/null
+    echo "Done"
+
+    # experimentl ndp scan from 'brew install ipv6toolkit'
+    echo -n "[+]NdpScan local IPv6. "
+    sudo scan6 -i en0 -L -e -v &> /dev/null
     echo "Done"
 
     #Ping multicast address for local neighbours and store as LinkLocalNeighbours
