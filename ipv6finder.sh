@@ -65,9 +65,9 @@ f_main(){
     ArpScan=$(sudo arp-scan -l -I ${interface} | grep -v packets | grep -v DUP | grep -v ${interface} | grep -v Starting | grep -v Ending | cut -f1,2)
     echo "Done"
 
-    echo "-----------------------------------------|------------------------------------------|--------------------|--------------------|-------------"
-    printf "%40s %1s %40s %1s %18s %1s %18s %1s %12s\n" "IPv6 Link Local" "|" "IPv6 Global" "|" "MAC Address" "|" "IPv4 Address" "|" "Info"
-    echo "-----------------------------------------|------------------------------------------|--------------------|--------------------|-------------"
+    echo "---------------------------|-----------------------------------------|-------------------|-----------------|-------------------------------"
+    printf "%26s %1s %39s %1s %17s %1s %15s %1s %9s (Hostname)\n" "IPv6 Link Local" "|" "IPv6 Global" "|" "MAC Address" "|" "IPv4 Address" "|" "Info"
+    echo "---------------------------|-----------------------------------------|-------------------|-----------------|-------------------------------"
     for IPV6LL in ${NdpNeighbours}; do
         # Remove interface identifier (if any)
         IPV6LL=$(echo ${IPV6LL} | head -n1 | cut -d"%" -f1 | sed "s/:\$//g")
@@ -99,18 +99,21 @@ f_main(){
             if [ "${IPV6LL}" = "${OwnIpv6}" ]; then
                 IPV4Address=$(ip -4 addr show ${interface} | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
                 Info="You"
+                HostName=$(host ${IPV4Address} $(route get default | grep gateway | cut -d":" -f2) | grep name | head -n1 | cut -d" " -f5 | cut -d"." -f1)
             else
                 IPV4Address=""
                 Info=""
+                HostName=""
             fi
         else #IPv4 found so now decididng if router or not
             if (echo "$RouterLocalNeighbours" | grep -q ${IPV6LL}) ; then Info="Router"; else Info="Node" ; fi
+            HostName=$(host ${IPV4Address} $(route get default | grep gateway | cut -d":" -f2) | grep name | head -n1 | cut -d" " -f5 | cut -d"." -f1)
         fi
         if [ -z "${IPV4Address}" ]; then IPV4Address="NotFound" ; Info="IPv6only?" ; fi
         if [[ ${LongMAC} == *"incomplete"* ]]; then LongMAC="00:00:00:00:00:00" ; fi
-        printf "%40s %1s %40s %1s %18s %1s %18s %1s %12s\n" ${IPV6LL_WITH_INTERFACE} "|" ${IPV6G} "|" ${LongMAC} "|" ${IPV4Address} "|" ${Info}
+        printf "%26s %1s %39s %1s %17s %1s %15s %1s %9s (%s)\n" ${IPV6LL} "|" ${IPV6G} "|" ${LongMAC} "|" ${IPV4Address} "|" ${Info} ${HostName}
     done
-    echo "-----------------------------------------|------------------------------------------|--------------------|--------------------|-------------"
+    echo "---------------------------|-----------------------------------------|-------------------|-----------------|-------------------------------"
 }
 
 f_usage(){ #echo usage
